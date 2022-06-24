@@ -16,4 +16,5 @@ pub trait AstNode: Display {
 }
 
 pub mod constant;
+pub mod mul;
 pub mod roll;

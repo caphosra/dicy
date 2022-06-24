@@ -5,9 +5,11 @@ use nom::bytes::complete::tag;
 use nom::character::complete::digit1;
 use nom::combinator::map;
 use nom::error::VerboseError;
+use nom::multi::separated_list1;
 use nom::sequence::tuple;
 
 use crate::ast::constant::ConstantNode;
+use crate::ast::mul::MulNode;
 use crate::ast::roll::RollNode;
 use crate::ast::AstNode;
 
@@ -27,6 +29,19 @@ impl Parser {
     ) -> nom::IResult<&'l str, Box<dyn AstNode>, VerboseError<&'l str>> {
         let (text, node) = self.parse_roll(text)?;
         Ok((text, node))
+    }
+
+    ///
+    /// Parses a term into the node of AST.
+    ///
+    pub fn parse_term<'l>(
+        &'l self,
+        text: &'l str,
+    ) -> nom::IResult<&'l str, Box<dyn AstNode>, VerboseError<&'l str>> {
+        let roll_parser = |t| self.parse_roll(t);
+
+        let (text, node) = separated_list1(tag("*"), roll_parser)(text)?;
+        Ok((text, Box::new(MulNode::new(node))))
     }
 
     ///
@@ -57,7 +72,7 @@ impl Parser {
         text: &'l str,
     ) -> nom::IResult<&'l str, Box<dyn AstNode>, VerboseError<&'l str>> {
         let (text, node) = map(digit1, |digits: &str| {
-            Box::new(ConstantNode::new(digits.parse().unwrap())) as Box<dyn AstNode>
+            Box::new(ConstantNode::new(digits.parse().unwrap()))
         })(text)?;
 
         Ok((text, node))
@@ -67,6 +82,15 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_term() {
+        let parser = Parser::default();
+        let text = "3d1*19";
+        let (text, mut node) = parser.parse_term(text).unwrap();
+        assert_eq!(text, "");
+        assert_eq!(node.visit(), 57);
+    }
 
     #[test]
     fn test_parse_roll() {
